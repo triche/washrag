@@ -15,8 +15,8 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rag_database import RAGDatabase
-from agent import AIAgent
+from rag_database import RAGDatabase # pylint: disable=import-error
+from agent import AIAgent # pylint: disable=import-error
 import main
 
 

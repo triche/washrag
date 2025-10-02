@@ -4,14 +4,13 @@ Tests for the AI Agent component.
 
 import os
 import pytest
-import tempfile
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 # Import the module under test
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from agent import AIAgent
+from agent import AIAgent  # pylint: disable=import-error
 
 
 class TestAIAgent:
@@ -42,7 +41,7 @@ class TestAIAgent:
     def test_initialization_invalid_config(self, temp_dir):
         """Test AIAgent initialization with invalid config file."""
         invalid_config = os.path.join(temp_dir, 'invalid.yaml')
-        with open(invalid_config, 'w') as f:
+        with open(invalid_config, 'w', encoding='utf-8') as f:
             f.write("invalid: yaml: content:")
         
         with pytest.raises(Exception):
@@ -241,7 +240,7 @@ class TestAIAgent:
         
         import yaml
         config_path = os.path.join(temp_dir, 'incomplete.yaml')
-        with open(config_path, 'w') as f:
+        with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(incomplete_config, f)
         
         # Should raise KeyError for missing configuration

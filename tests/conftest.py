@@ -8,7 +8,6 @@ import tempfile
 import shutil
 import pytest
 from unittest.mock import Mock, patch
-from pathlib import Path
 
 # Add src to path for testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -104,7 +103,7 @@ def config_file(temp_dir, sample_config):
     import yaml
     
     config_path = os.path.join(temp_dir, 'test_config.yaml')
-    with open(config_path, 'w') as f:
+    with open(config_path, 'w', encoding='utf-8') as f:
         yaml.dump(sample_config, f)
     
     return config_path
@@ -160,7 +159,7 @@ def mock_openai_client():
 @pytest.fixture
 def rag_db_instance(temp_db_dir):
     """Create a RAGDatabase instance for testing."""
-    from rag_database import RAGDatabase
+    from rag_database import RAGDatabase  # pylint: disable=import-error
     return RAGDatabase(
         db_path=temp_db_dir,
         embedding_model="all-MiniLM-L6-v2",
@@ -172,7 +171,7 @@ def rag_db_instance(temp_db_dir):
 @pytest.fixture
 def agent_instance(config_file, mock_openai_client):
     """Create an AIAgent instance for testing."""
-    from agent import AIAgent
+    from agent import AIAgent  # pylint: disable=import-error
     with patch('agent.OpenAI', return_value=mock_openai_client):
         with patch.dict(os.environ, {'TEST_OPENAI_API_KEY': 'test-key'}):
             agent = AIAgent(config_file)

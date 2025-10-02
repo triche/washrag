@@ -5,8 +5,7 @@ Tests for the main CLI application.
 import os
 import sys
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from io import StringIO
+from unittest.mock import Mock, patch
 
 # Add src to path for testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))

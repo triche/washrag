@@ -8,7 +8,6 @@ Command-line interface for the WashRAG AI agent.
 import os
 import sys
 import argparse
-from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -17,7 +16,7 @@ from rich.prompt import Prompt
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from agent import AIAgent
+from agent import AIAgent  # pylint: disable=import-error
 
 console = Console()
 
@@ -130,7 +129,7 @@ def single_query_mode(agent, query):
         with console.status("[bold green]Processing query..."):
             result = agent.chat(query)
         
-        console.print(f"\n[bold magenta]Response:[/bold magenta]")
+        console.print("\n[bold magenta]Response:[/bold magenta]")
         console.print(Markdown(result['response']))
         
         if result['sources']:

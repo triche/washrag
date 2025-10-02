@@ -13,7 +13,7 @@ from typing import List
 # Add src to path for testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from rag_database import RAGDatabase
+from rag_database import RAGDatabase # pylint: disable=import-error
 from .test_utils import create_sample_knowledge_base
 
 

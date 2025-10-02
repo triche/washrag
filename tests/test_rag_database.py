@@ -4,9 +4,7 @@ Tests for the RAG Database component.
 
 import os
 import pytest
-import tempfile
-import shutil
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 # Import the module under test
 import sys

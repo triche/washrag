@@ -32,7 +32,7 @@ def check_directory(path, description):
 def validate_config(config_path):
     """Validate the configuration file."""
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
         required_sections = {
@@ -51,7 +51,7 @@ def validate_config(config_path):
                     print(f"  ✗ Missing key in {section}: {key}")
                     return False
         
-        print(f"  ✓ All required configuration sections present")
+        print("  ✓ All required configuration sections present")
         print(f"  ✓ Agent: {config['agent']['name']}")
         print(f"  ✓ Model: {config['llm']['model']}")
         print(f"  ✓ Embedding: {config['rag']['embedding_model']}")
