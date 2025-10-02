@@ -1,0 +1,191 @@
+"""
+AI Agent
+
+Main agent that uses RAG to answer questions.
+"""
+
+import os
+import yaml
+from typing import Optional, Dict, List
+import logging
+from openai import OpenAI
+from dotenv import load_dotenv
+
+from rag_database import RAGDatabase
+
+load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class AIAgent:
+    """AI Agent with RAG capabilities."""
+    
+    def __init__(self, config_path: str = "./config/agent_config.yaml"):
+        """
+        Initialize the AI agent.
+        
+        Args:
+            config_path: Path to the configuration YAML file
+        """
+        # Load configuration
+        with open(config_path, 'r') as f:
+            self.config = yaml.safe_load(f)
+        
+        # Initialize RAG database
+        rag_config = self.config['rag']
+        self.rag_db = RAGDatabase(
+            db_path="./chroma_db",
+            embedding_model=rag_config['embedding_model'],
+            chunk_size=rag_config['chunk_size'],
+            chunk_overlap=rag_config['chunk_overlap']
+        )
+        
+        # Initialize OpenAI client
+        llm_config = self.config['llm']
+        api_key = os.getenv(llm_config['api_key_env'])
+        if not api_key:
+            logger.warning(f"API key not found in environment variable: {llm_config['api_key_env']}")
+            logger.warning("Agent will not be able to generate responses without an API key.")
+            self.client = None
+        else:
+            self.client = OpenAI(api_key=api_key)
+        
+        self.model = llm_config['model']
+        
+        # Agent settings
+        agent_config = self.config['agent']
+        self.name = agent_config['name']
+        self.personality = agent_config['personality']
+        self.system_prompt = agent_config['system_prompt']
+        self.temperature = agent_config['temperature']
+        self.max_tokens = agent_config['max_tokens']
+        
+        # RAG settings
+        self.top_k = rag_config['top_k']
+        self.similarity_threshold = rag_config['similarity_threshold']
+        
+        logger.info(f"Agent '{self.name}' initialized")
+    
+    def load_knowledge_base(self, directory: str = "./rag_db"):
+        """
+        Load markdown files into the knowledge base.
+        
+        Args:
+            directory: Directory containing markdown files
+        """
+        logger.info(f"Loading knowledge base from {directory}")
+        self.rag_db.load_markdown_files(directory)
+        stats = self.rag_db.get_stats()
+        logger.info(f"Knowledge base loaded: {stats['document_count']} chunks")
+    
+    def retrieve_context(self, query: str) -> tuple[List[str], List[Dict]]:
+        """
+        Retrieve relevant context from the knowledge base.
+        
+        Args:
+            query: User query
+            
+        Returns:
+            Tuple of (relevant_texts, sources)
+        """
+        results = self.rag_db.query(query, top_k=self.top_k)
+        
+        relevant_texts = []
+        sources = []
+        
+        for text, similarity, metadata in results:
+            if similarity >= self.similarity_threshold:
+                relevant_texts.append(text)
+                sources.append({
+                    'source': metadata['source'],
+                    'similarity': similarity
+                })
+        
+        return relevant_texts, sources
+    
+    def generate_response(self, query: str, context: List[str], sources: List[Dict]) -> str:
+        """
+        Generate a response using the LLM with retrieved context.
+        
+        Args:
+            query: User query
+            context: Retrieved context texts
+            sources: Source information for the context
+            
+        Returns:
+            Generated response
+        """
+        if not self.client:
+            return ("ERROR: OpenAI API key not configured. Please set the OPENAI_API_KEY "
+                   "environment variable to use the agent.")
+        
+        # Build context string
+        if context:
+            context_str = "\n\n---\n\n".join(context)
+            context_section = f"\n\nRelevant information from knowledge base:\n{context_str}"
+            
+            # Add source information
+            source_files = list(set(s['source'] for s in sources))
+            sources_str = ", ".join(source_files)
+            context_section += f"\n\n(Sources: {sources_str})"
+        else:
+            context_section = "\n\nNo relevant information found in knowledge base."
+        
+        # Build messages
+        messages = [
+            {
+                "role": "system",
+                "content": self.system_prompt + "\n\nPersonality:\n" + self.personality
+            },
+            {
+                "role": "user",
+                "content": query + context_section
+            }
+        ]
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Error generating response: {e}")
+            return f"Error generating response: {e}"
+    
+    def chat(self, query: str) -> Dict:
+        """
+        Process a query and return a response.
+        
+        Args:
+            query: User query
+            
+        Returns:
+            Dictionary with response and metadata
+        """
+        logger.info(f"Processing query: {query}")
+        
+        # Retrieve relevant context
+        context, sources = self.retrieve_context(query)
+        
+        logger.info(f"Retrieved {len(context)} relevant chunks")
+        
+        # Generate response
+        response = self.generate_response(query, context, sources)
+        
+        return {
+            'response': response,
+            'sources': sources,
+            'context_chunks': len(context)
+        }
+    
+    def clear_knowledge_base(self):
+        """Clear the knowledge base."""
+        self.rag_db.clear_database()
+        logger.info("Knowledge base cleared")
