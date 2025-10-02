@@ -1,13 +1,33 @@
 # Core dependencies
-openai>=1.0.0
-chromadb>=0.4.0
-sentence-transformers>=2.2.0
-pyyaml>=6.0
-python-dotenv>=1.0.0
-tiktoken>=0.5.0
+openai>=2.0.0
+chromadb>=1.1.0
+sentence-transformers>=5.1.0
+pyyaml>=6.0.0
+python-dotenv>=1.1.0
+tiktoken>=0.11.0
 
 # For markdown processing
-markdown>=3.4.0
+markdown>=3.9.0
 
 # CLI interface
-rich>=13.0.0
+rich>=14.0.0
+
+# Testing dependencies
+pytest>=8.4.0
+pytest-cov>=7.0.0
+pytest-mock>=3.15.0
+pytest-asyncio>=1.2.0
+
+# Performance monitoring for tests
+psutil>=7.1.0
+
+# Machine learning and data processing
+numpy>=2.3.0
+scikit-learn>=1.7.0
+torch>=2.8.0
+transformers>=4.56.0
+
+# Additional dependencies for robust operation
+requests>=2.32.0
+packaging>=25.0
+filelock>=3.19.0

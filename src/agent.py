@@ -6,7 +6,7 @@ Main agent that uses RAG to answer questions.
 
 import os
 import yaml
-from typing import Optional, Dict, List
+from typing import Dict, List
 import logging
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -30,7 +30,7 @@ class AIAgent:
             config_path: Path to the configuration YAML file
         """
         # Load configuration
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             self.config = yaml.safe_load(f)
         
         # Initialize RAG database
@@ -46,7 +46,7 @@ class AIAgent:
         llm_config = self.config['llm']
         api_key = os.getenv(llm_config['api_key_env'])
         if not api_key:
-            logger.warning(f"API key not found in environment variable: {llm_config['api_key_env']}")
+            logger.warning("API key not found in environment variable: %s", llm_config['api_key_env'])
             logger.warning("Agent will not be able to generate responses without an API key.")
             self.client = None
         else:
@@ -66,7 +66,7 @@ class AIAgent:
         self.top_k = rag_config['top_k']
         self.similarity_threshold = rag_config['similarity_threshold']
         
-        logger.info(f"Agent '{self.name}' initialized")
+        logger.info("Agent '%s' initialized", self.name)
     
     def load_knowledge_base(self, directory: str = "./rag_db"):
         """
@@ -75,10 +75,10 @@ class AIAgent:
         Args:
             directory: Directory containing markdown files
         """
-        logger.info(f"Loading knowledge base from {directory}")
+        logger.info("Loading knowledge base from %s", directory)
         self.rag_db.load_markdown_files(directory)
         stats = self.rag_db.get_stats()
-        logger.info(f"Knowledge base loaded: {stats['document_count']} chunks")
+        logger.info("Knowledge base loaded: %s chunks", stats['document_count'])
     
     def retrieve_context(self, query: str) -> tuple[List[str], List[Dict]]:
         """
@@ -155,9 +155,15 @@ class AIAgent:
             
             return response.choices[0].message.content
             
-        except Exception as e:
-            logger.error(f"Error generating response: {e}")
-            return f"Error generating response: {e}"
+        except (ConnectionError, TimeoutError) as e:
+            logger.error("Network error generating response: %s", e)
+            return f"Network error generating response: {e}"
+        except ValueError as e:
+            logger.error("Invalid response from API: %s", e)
+            return f"Invalid response from API: {e}"
+        except RuntimeError as e:
+            logger.error("Runtime error generating response: %s", e)
+            return f"Runtime error generating response: {e}"
     
     def chat(self, query: str) -> Dict:
         """
@@ -169,12 +175,12 @@ class AIAgent:
         Returns:
             Dictionary with response and metadata
         """
-        logger.info(f"Processing query: {query}")
+        logger.info("Processing query: %s", query)
         
         # Retrieve relevant context
         context, sources = self.retrieve_context(query)
         
-        logger.info(f"Retrieved {len(context)} relevant chunks")
+        logger.info("Retrieved %s relevant chunks", len(context))
         
         # Generate response
         response = self.generate_response(query, context, sources)
