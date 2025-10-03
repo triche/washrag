@@ -13,6 +13,10 @@ from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Tuple
 import logging
 
+# Reduce noise from third-party libraries
+logging.getLogger('chromadb').setLevel(logging.WARNING)
+logging.getLogger('sentence_transformers').setLevel(logging.WARNING)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -43,6 +47,10 @@ class RAGDatabase:
         # Initialize embedding model
         logger.info("Loading embedding model: %s", embedding_model)
         self.embedding_model = SentenceTransformer(embedding_model)
+
+        # Set logging level to reduce noise
+        embedding_logger = logging.getLogger('sentence_transformers')
+        embedding_logger.setLevel(logging.WARNING)
 
         # Initialize ChromaDB - handle singleton conflicts for testing
         try:

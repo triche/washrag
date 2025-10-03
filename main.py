@@ -20,9 +20,49 @@ from agent import AIAgent  # pylint: disable=import-error
 
 console = Console()
 
+# Global verbosity level
+VERBOSITY = "normal"  # "quiet", "normal", "verbose"
+
+
+def set_verbosity(level):
+    """Set the global verbosity level."""
+    global VERBOSITY
+    VERBOSITY = level.lower()
+
+
+def print_status(message, level="normal", style=""):
+    """Print status message based on verbosity level."""
+    if VERBOSITY == "quiet":
+        return
+    if level == "verbose" and VERBOSITY != "verbose":
+        return
+    
+    if style:
+        console.print(f"[{style}]{message}[/{style}]")
+    else:
+        console.print(message)
+
+
+def print_error(message):
+    """Always print errors regardless of verbosity."""
+    console.print(f"[red]{message}[/red]")
+
+
+def print_success(message, level="normal"):
+    """Print success message based on verbosity level."""
+    print_status(message, level, "green")
+
+
+def print_warning(message, level="normal"):
+    """Print warning message based on verbosity level."""
+    print_status(message, level, "yellow")
+
 
 def print_banner():
     """Print welcome banner."""
+    if VERBOSITY == "quiet":
+        return
+        
     banner = """
     ╦ ╦┌─┐┌─┐┬ ┬╦═╗╔═╗╔═╗
     ║║║├─┤└─┐├─┤╠╦╝╠═╣║ ╦
@@ -37,14 +77,21 @@ def initialize_agent(args):
     config_path = args.config or "./config/agent_config.yaml"
     
     if not os.path.exists(config_path):
-        console.print(f"[red]Error: Config file not found: {config_path}[/red]")
+        print_error(f"Config file not found: {config_path}")
         sys.exit(1)
     
     try:
         agent = AIAgent(config_path)
+        
+        # Set verbosity from agent config if not overridden by command line
+        if not hasattr(args, 'verbosity') or args.verbosity is None:
+            config_verbosity = getattr(agent, 'verbosity', 'normal')
+            set_verbosity(config_verbosity)
+        
+        print_status(f"Agent '{agent.name}' initialized", "verbose")
         return agent
     except Exception as e:
-        console.print(f"[red]Error initializing agent: {e}[/red]")
+        print_error(f"Error initializing agent: {e}")
         sys.exit(1)
 
 
@@ -53,26 +100,31 @@ def load_knowledge_base(agent, args):
     kb_path = args.kb_path or "./rag_db"
     
     if not os.path.exists(kb_path):
-        console.print(f"[yellow]Warning: Knowledge base directory not found: {kb_path}[/yellow]")
-        console.print("[yellow]Creating directory...[/yellow]")
+        print_warning(f"Knowledge base directory not found: {kb_path}")
+        print_status("Creating directory...", "verbose")
         os.makedirs(kb_path, exist_ok=True)
-        console.print("[yellow]Please add markdown files to this directory.[/yellow]")
+        print_warning("Please add markdown files to this directory.")
         return False
     
     try:
-        with console.status("[bold green]Loading knowledge base..."):
+        if VERBOSITY != "quiet":
+            with console.status("[bold green]Loading knowledge base..."):
+                agent.load_knowledge_base(kb_path)
+        else:
             agent.load_knowledge_base(kb_path)
-        console.print("[green]✓ Knowledge base loaded successfully[/green]")
+        
+        print_success("Knowledge base loaded", "normal")
         return True
     except Exception as e:
-        console.print(f"[red]Error loading knowledge base: {e}[/red]")
+        print_error(f"Error loading knowledge base: {e}")
         return False
 
 
 def interactive_mode(agent):
     """Run the agent in interactive mode."""
-    console.print("\n[bold green]Interactive Mode[/bold green]")
-    console.print("Type your questions. Commands: /help, /clear, /quit\n")
+    if VERBOSITY != "quiet":
+        console.print("\n[bold green]Interactive Mode[/bold green]")
+        console.print("Type your questions. Commands: /help, /clear, /quit\n")
     
     while True:
         try:
@@ -82,8 +134,9 @@ def interactive_mode(agent):
                 continue
             
             # Handle commands
-            if query.lower() == '/quit' or query.lower() == '/exit':
-                console.print("[yellow]Goodbye![/yellow]")
+            if query.lower() in ['/quit', '/exit']:
+                if VERBOSITY != "quiet":
+                    console.print("[yellow]Goodbye![/yellow]")
                 break
             
             elif query.lower() == '/help':
@@ -98,48 +151,59 @@ def interactive_mode(agent):
             
             elif query.lower() == '/clear':
                 agent.clear_knowledge_base()
-                console.print("[yellow]Knowledge base cleared[/yellow]")
+                print_status("Knowledge base cleared", "normal", "yellow")
                 continue
             
             # Process query
-            with console.status("[bold green]Thinking..."):
+            if VERBOSITY != "quiet":
+                with console.status("[bold green]Thinking..."):
+                    result = agent.chat(query)
+            else:
                 result = agent.chat(query)
             
             # Display response
             console.print(f"\n[bold magenta]{agent.name}[/bold magenta]:")
             console.print(Markdown(result['response']))
             
-            # Display sources if any
-            if result['sources']:
+            # Display sources if any and if verbose enough
+            if result['sources'] and VERBOSITY != "quiet":
                 sources_str = ", ".join(set(s['source'] for s in result['sources']))
                 console.print(f"\n[dim]Sources: {sources_str}[/dim]")
             
             console.print()
             
         except KeyboardInterrupt:
-            console.print("\n[yellow]Goodbye![/yellow]")
+            if VERBOSITY != "quiet":
+                console.print("\n[yellow]Goodbye![/yellow]")
             break
         except Exception as e:
-            console.print(f"[red]Error: {e}[/red]")
+            print_error(f"Error: {e}")
 
 
 def single_query_mode(agent, query):
     """Process a single query and exit."""
     try:
-        with console.status("[bold green]Processing query..."):
+        if VERBOSITY != "quiet":
+            with console.status("[bold green]Processing query..."):
+                result = agent.chat(query)
+        else:
             result = agent.chat(query)
         
-        console.print("\n[bold magenta]Response:[/bold magenta]")
-        console.print(Markdown(result['response']))
-        
-        if result['sources']:
-            sources_str = ", ".join(set(s['source'] for s in result['sources']))
-            console.print(f"\n[dim]Sources: {sources_str}[/dim]")
-        
-        console.print()
+        # In quiet mode, just show the response without formatting
+        if VERBOSITY == "quiet":
+            console.print(result['response'])
+        else:
+            console.print("\n[bold magenta]Response:[/bold magenta]")
+            console.print(Markdown(result['response']))
+            
+            if result['sources']:
+                sources_str = ", ".join(set(s['source'] for s in result['sources']))
+                console.print(f"\n[dim]Sources: {sources_str}[/dim]")
+            
+            console.print()
         
     except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
+        print_error(f"Error: {e}")
         sys.exit(1)
 
 
@@ -153,6 +217,8 @@ Examples:
   %(prog)s                           # Interactive mode
   %(prog)s -q "What is WashRAG?"     # Single query
   %(prog)s --kb-path ./docs          # Use custom knowledge base
+  %(prog)s --quiet -q "question"     # Minimal output
+  %(prog)s --verbose                 # Detailed output
         """
     )
     
@@ -177,15 +243,36 @@ Examples:
         help='Skip loading the knowledge base on startup'
     )
     
+    # Verbosity options
+    verbosity_group = parser.add_mutually_exclusive_group()
+    verbosity_group.add_argument(
+        '--quiet', '-q-mode',
+        action='store_const',
+        const='quiet',
+        dest='verbosity',
+        help='Minimal output (quiet mode)'
+    )
+    verbosity_group.add_argument(
+        '--verbose', '-v',
+        action='store_const',
+        const='verbose',
+        dest='verbosity',
+        help='Detailed output (verbose mode)'
+    )
+    
     args = parser.parse_args()
+    
+    # Set verbosity from command line if provided
+    if args.verbosity:
+        set_verbosity(args.verbosity)
     
     # Print banner
     print_banner()
     
     # Initialize agent
-    console.print("[bold]Initializing agent...[/bold]")
+    print_status("Initializing agent...", "normal", "bold")
     agent = initialize_agent(args)
-    console.print(f"[green]✓ Agent '{agent.name}' ready[/green]")
+    print_success(f"Agent '{agent.name}' ready", "normal")
     
     # Load knowledge base
     if not args.no_load:

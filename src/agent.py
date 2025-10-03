@@ -65,12 +65,22 @@ class AIAgent:
         self.system_prompt = agent_config["system_prompt"]
         self.temperature = agent_config["temperature"]
         self.max_tokens = agent_config["max_tokens"]
+        self.verbosity = agent_config.get("verbosity", "normal")
 
         # RAG settings
         self.top_k = rag_config["top_k"]
         self.similarity_threshold = rag_config["similarity_threshold"]
 
-        logger.info("Agent '%s' initialized", self.name)
+        # Set logging level based on verbosity
+        if self.verbosity == "quiet":
+            logger.setLevel(logging.ERROR)
+        elif self.verbosity == "verbose":
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARNING)
+
+        if self.verbosity == "verbose":
+            logger.info("Agent '%s' initialized", self.name)
 
     def load_knowledge_base(self, directory: str = "./rag_db"):
         """
@@ -79,10 +89,12 @@ class AIAgent:
         Args:
             directory: Directory containing markdown files
         """
-        logger.info("Loading knowledge base from %s", directory)
+        if self.verbosity == "verbose":
+            logger.info("Loading knowledge base from %s", directory)
         self.rag_db.load_markdown_files(directory)
         stats = self.rag_db.get_stats()
-        logger.info("Knowledge base loaded: %s chunks", stats["document_count"])
+        if self.verbosity == "verbose":
+            logger.info("Knowledge base loaded: %s chunks", stats["document_count"])
 
     def retrieve_context(self, query: str) -> tuple[List[str], List[Dict]]:
         """
@@ -179,12 +191,14 @@ class AIAgent:
         Returns:
             Dictionary with response and metadata
         """
-        logger.info("Processing query: %s", query)
+        if self.verbosity == "verbose":
+            logger.info("Processing query: %s", query)
 
         # Retrieve relevant context
         context, sources = self.retrieve_context(query)
 
-        logger.info("Retrieved %s relevant chunks", len(context))
+        if self.verbosity == "verbose":
+            logger.info("Retrieved %s relevant chunks", len(context))
 
         # Generate response
         response = self.generate_response(query, context, sources)
@@ -194,4 +208,5 @@ class AIAgent:
     def clear_knowledge_base(self):
         """Clear the knowledge base."""
         self.rag_db.clear_database()
-        logger.info("Knowledge base cleared")
+        if self.verbosity == "verbose":
+            logger.info("Knowledge base cleared")
